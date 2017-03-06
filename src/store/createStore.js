@@ -1,14 +1,16 @@
 import { applyMiddleware, compose, createStore } from 'redux'
 import thunk from 'redux-thunk'
 import { browserHistory } from 'react-router'
+import createSagaMiddleware from 'redux-saga'
 import makeRootReducer from './reducers'
 import { updateLocation } from './location'
 
 export default (initialState = {}) => {
+  const sagaMiddleware = createSagaMiddleware()
   // ======================================================
   // Middleware Configuration
   // ======================================================
-  const middleware = [thunk]
+  const middleware = [sagaMiddleware, thunk]
 
   // ======================================================
   // Store Enhancers
@@ -36,6 +38,8 @@ export default (initialState = {}) => {
     )
   )
   store.asyncReducers = {}
+  store.runningSagas = {}
+  store.sagaMiddleware = sagaMiddleware
 
   // To unsubscribe, invoke `store.unsubscribeHistory()` anytime
   store.unsubscribeHistory = browserHistory.listen(updateLocation(store))

@@ -1,0 +1,34 @@
+.choice-as__container {
+  display: flex;
+  justify-content: space-around;
+}
+
+.choice-as__log {
+  text-align: left;
+  list-style-type: none;
+}
+
+.choice-as__choiceKeyBox {
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
+
+  -ms-flex-align: center;
+  -webkit-align-items: center;
+  -webkit-box-align: center;
+
+  align-items: center;
+  justify-content: center;
+}
+
+.choice-as__duck {
+  display: block;
+  width: 120px;
+  margin: 0 auto;
+}
+
+.choice-as__test-results-container {
+  // display: flex;
+  // justify-content: space-between;
+  list-style-type: none;
+}
