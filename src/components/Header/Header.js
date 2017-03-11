@@ -1,10 +1,12 @@
 import React from 'react'
 import { IndexLink, Link } from 'react-router'
+import LoginFormContainer from 'containers/CognitoUsers/LoginFormContainer'
 import './Header.scss'
 
 export const Header = () => (
   <div>
-    <h1>React Redux Starter Kit</h1>
+    <h1>Choice As</h1>
+    <LoginFormContainer />
     <IndexLink to='/' activeClassName='route--active'>
       Home
     </IndexLink>

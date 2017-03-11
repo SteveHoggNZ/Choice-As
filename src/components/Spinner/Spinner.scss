@@ -1,0 +1,15 @@
+.centered {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.invisible {
+  visibility: 'hidden'
+}
+
+.blur-background {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 25px;
+}

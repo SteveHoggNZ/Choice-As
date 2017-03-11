@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom'
 import createStore from './store/createStore'
 import AppContainer from './containers/AppContainer'
 
+import 'bootstrap/dist/css/bootstrap.css'
+import 'font-awesome/scss/font-awesome.scss'
+
 // ========================================================
 // Store Instantiation
 // ========================================================

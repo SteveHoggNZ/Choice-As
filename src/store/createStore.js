@@ -3,6 +3,7 @@ import thunk from 'redux-thunk'
 import { browserHistory } from 'react-router'
 import createSagaMiddleware from 'redux-saga'
 import makeRootReducer from './reducers'
+import { syncSagasStart } from './sagas'
 import { updateLocation } from './location'
 
 export default (initialState = {}) => {
@@ -40,6 +41,7 @@ export default (initialState = {}) => {
   store.asyncReducers = {}
   store.runningSagas = {}
   store.sagaMiddleware = sagaMiddleware
+  syncSagasStart(store)
 
   // To unsubscribe, invoke `store.unsubscribeHistory()` anytime
   store.unsubscribeHistory = browserHistory.listen(updateLocation(store))
