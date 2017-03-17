@@ -4,6 +4,7 @@ import Immutable from 'immutable'
 import * as immutableUtil from 'util/immutable'
 import { createSelector } from 'reselect'
 import { createReducer } from 'util/reducers'
+import AWS from 'aws-sdk'
 import {
   CognitoUser,
   CognitoUserPool,
@@ -11,8 +12,10 @@ import {
   AuthenticationDetails
 } from 'amazon-cognito-identity-js'
 import sagaUtil from 'util/sagas'
+import databaseConfig from 'config/database.js'
 import config from 'config/cognito-users.js'
 
+AWS.config.region = config.region
 const cognitoUserPool = new CognitoUserPool({
   UserPoolId: config['user-pool-id'],
   ClientId: config['user-pool-app-client-id']
@@ -63,9 +66,13 @@ const creators = {
   cognitoSessionCheck: () => ({
     type: constants.COGNITO_SESSION_CHECK
   }),
-  cognitoSessionSet: (loggedIn) => ({
+  cognitoSessionSet: (loggedIn, token, identityID) => ({
     type: constants.COGNITO_SESSION_SET,
-    payload: loggedIn
+    payload: {
+      loggedIn,
+      token,
+      identityID
+    }
   }),
   cognitoRequest: (email, password, studentid) => ({
     type: constants.COGNITO_REQUEST
@@ -140,9 +147,8 @@ const creators = {
       password
     }
   }),
-  loginReceive: (token) => ({
-    type: constants.LOGIN_RECEIVE,
-    payload: token
+  loginReceive: () => ({
+    type: constants.LOGIN_RECEIVE
   }),
 
   logoutRequest: () => ({
@@ -160,7 +166,10 @@ const handlers = {
       .set('message', '')
       .set('errorMessage', ''),
   [constants.COGNITO_SESSION_SET]: (state, action) =>
-    state.setIn(['session', 'loggedIn'], action.payload)
+    state
+      .setIn(['session', 'token'], action.payload.token)
+      .setIn(['session', 'identityID'], action.payload.identityID)
+      .setIn(['session', 'loggedIn'], action.payload.loggedIn)
       .setIn(['session', 'loggedInCheck'], false),
   [constants.COGNITO_REQUEST]: (state, action) =>
     state.set('requestInProgress', true)
@@ -192,10 +201,9 @@ const handlers = {
     state.setIn(['forgot', 'email'], '')
       .setIn(['forgot', 'password'], '')
       .setIn(['forgot', 'status'], ''),
-  [constants.LOGIN_RECEIVE]: (state, action) =>
-    state.set('token', action.payload),
   [constants.LOGOUT_RECEIVE]: (state, action) =>
-    state.set('token', '')
+    state.setIn(['session', 'token'], '')
+      .setIn(['session', 'identityID'], '')
 }
 
 const actions = {
@@ -209,7 +217,6 @@ const initialState = Immutable.fromJS({
   requestInProgress: false,
   message: '',
   errorMessage: '',
-  token: '',
   signUp: {
     email: '',
     password: '',
@@ -222,6 +229,8 @@ const initialState = Immutable.fromJS({
     status: ''
   },
   session: {
+    token: '',
+    identityID: '',
     loggedIn: false,
     loggedInCheck: true
   }
@@ -282,7 +291,7 @@ const getForgotState = createSelector(
 )
 
 const _getToken = (state) =>
-  state[constants.STATE_PATH].get('token')
+  state[constants.STATE_PATH].getIn(['session', 'token'])
 
 const getToken = createSelector(
   _getToken,
@@ -338,7 +347,7 @@ const sagaHandlers = {
       const cognitoUser = cognitoUserPool.getCurrentUser()
 
       if (cognitoUser === null) {
-        yield put(yield call(actions.creators.cognitoSessionSet, false))
+        yield put(yield call(actions.creators.cognitoSessionSet, false, '', ''))
       } else {
         const createSessionCheckChannel = () => {
           return eventChannel((emit) => {
@@ -348,7 +357,39 @@ const sagaHandlers = {
                 if (error) {
                   emit({ error: error.message })
                 } else {
-                  emit({ success: { isValid: session.isValid() } })
+                  const token = session.idToken.jwtToken
+                  const loginName = 'cognito-idp.' + config.region +
+                    '.amazonaws.com/' + config['user-pool-id']
+                  AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                    IdentityPoolId: config['identity-pool-id'],
+                    Logins: {
+                      [loginName]: token
+                    }
+                  })
+                  AWS.config.region = config.region
+
+                  // call refresh method in order to authenticate user and get new temp credentials
+                  AWS.config.credentials.refresh((error) => {
+                    if (error) {
+                      emit({ error })
+                    } else {
+                      const isValid = session.isValid() &&
+                        AWS.config.credentials &&
+                        !AWS.config.credentials.expired
+
+                      if (isValid) {
+                        emit({
+                          success: {
+                            isValid: true,
+                            token,
+                            identityID: AWS.config.credentials.identityId
+                          }
+                        })
+                      } else {
+                        emit({ error: 'Invalid or expired session' })
+                      }
+                    }
+                  })
                 }
               })
             }, 0)
@@ -362,9 +403,11 @@ const sagaHandlers = {
         try {
           let result = yield take(sessionCheckChannel)
           if (result.success) {
+            const { isValid, token, identityID } = result.success
             yield put(
               yield call(
-                actions.creators.cognitoSessionSet, result.success.isValid))
+                actions.creators.cognitoSessionSet,
+                  isValid, token, identityID))
           } else if (result.error) {
             yield put(yield call(actions.creators.cognitoFailure, result.error))
             yield put(yield call(actions.creators.cognitoSessionSet, false))
@@ -612,7 +655,6 @@ const sagaHandlers = {
             action.payload.password,
             {
               onSuccess: function (result) {
-                console.debug('changed password to', action.payload.password)
                 emit({ success: true })
               },
               onFailure: function (error) {
@@ -684,21 +726,14 @@ const sagaHandlers = {
         return eventChannel((emit) => {
           cognitoUser.authenticateUser(authenticationDetails, {
             onSuccess: function (result) {
-              emit(result.getAccessToken().getJwtToken())
-
-              //     // AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-              //     //   IdentityPoolId : '...', // your identity pool id here
-              //     //   Logins : {
-              //     //     // Change the key below according to the specific region your user pool is in.
-              //     //     'cognito-idp.<region>.amazonaws.com/<YOUR_USER_POOL_ID>' : result.getIdToken().getJwtToken()
-              //     //   }
-              //     // })
-              //
-              //     // Instantiate aws sdk service objects now that the credentials have been updated.
-              //     // example: var s3 = new AWS.S3();
+              emit({
+                success: true
+              })
             },
-            onFailure: function (err) {
-              emit(err)
+            onFailure: function (error) {
+              emit({
+                error
+              })
             }
           })
 
@@ -709,10 +744,14 @@ const sagaHandlers = {
 
       const authChannel = yield call(createAuthenticateChannel)
       try {
-        let token = yield take(authChannel)
-        yield put(yield call(actions.creators.cognitoReceive))
-        yield put(yield call(actions.creators.loginReceive, token))
-        yield put(yield call(actions.creators.cognitoSessionCheck))
+        const result = yield take(authChannel)
+        if (result.success) {
+          yield put(yield call(actions.creators.cognitoReceive))
+          yield put(yield call(actions.creators.loginReceive))
+          yield put(yield call(actions.creators.cognitoSessionCheck))
+        } else {
+          yield put(yield call(actions.creators.cognitoFailure, result.error))
+        }
       } catch (error) {
         authChannel.close()
         yield put(yield call(actions.creators.cognitoFailure, error.message))
@@ -725,6 +764,11 @@ const sagaHandlers = {
     handler: function * (action) {
       const cognitoUser = cognitoUserPool.getCurrentUser()
       yield call([cognitoUser, cognitoUser.signOut])
+
+      AWS.config.credentials.clearCachedId()
+      AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+        IdentityPoolId: config['identity-pool-id']
+      })
 
       yield put(yield call(actions.creators.logoutReceive))
       yield put(yield call(actions.creators.cognitoSessionCheck))

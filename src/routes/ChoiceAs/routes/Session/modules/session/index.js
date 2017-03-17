@@ -5,10 +5,13 @@ import { browserHistory } from 'react-router'
 import { call, put, select } from 'redux-saga/effects'
 import { delay } from 'redux-saga'
 import sagaUtil from 'util/sagas'
+import { selectors as cognitoUsersSelectors } from 'modules/cognito-users'
 import {
   selectors as selectorsChoiceAs,
   util as utilChoiceAs
 } from '../../../../modules/choiceas'
+
+import { sessionTrialInit, sessionTrialInsert } from 'api/dynamodb'
 
 /* constants */
 const STATE_PATH = 'session'
@@ -336,6 +339,10 @@ const SAGA_HANDLERS = {
     require: { payload: { sessionID: '', keyID: '' } },
     handler: function * (action) {
       const { sessionID, keyID } = action.payload
+      const userSession = yield select(cognitoUsersSelectors.getSession)
+      const sessionIDFull = userSession.identityID + ':' + sessionID
+
+      sessionTrialInsert(sessionIDFull, 'hello world!')
 
       // *** TODO, cache this result somewhere?
       const getSession = selectors.makeGetSession()
@@ -429,6 +436,10 @@ const SAGA_HANDLERS = {
     handler: function * (action) {
       const { conditionID } = action.payload
       const sessionID = yield call(uuid)
+      const userSession = yield select(cognitoUsersSelectors.getSession)
+      const sessionIDFull = userSession.identityID + ':' + sessionID
+
+      sessionTrialInit(sessionIDFull)
 
       const { conditions } =
         yield select(selectorsChoiceAs.getConditionsAndKeys)

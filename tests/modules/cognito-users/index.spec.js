@@ -36,7 +36,7 @@ const expectedConstants = [
   'LOGOUT_RECEIVE'
 ]
 
-describe('(Redux Module) Users', () => {
+describe('(Redux Module) Cognito Users', () => {
   it('Should export users constants.', () => {
     helpers.allConstExistIn({
       list: expectedConstants, constants
@@ -67,10 +67,15 @@ describe('(Redux Module) Users', () => {
     it('should have a cognitoSessionSet action', () => {
       expect(typeof actions.creators.cognitoSessionSet)
         .to.equal('function', 'is a function')
-      expect(actions.creators.cognitoSessionSet('mock-value'))
+      expect(actions.creators.cognitoSessionSet(
+          'mock-logged-in', 'mock-token', 'mock-identity-id'))
         .to.deep.equal({
           type: constants.COGNITO_SESSION_SET,
-          payload: 'mock-value'
+          payload: {
+            loggedIn: 'mock-logged-in',
+            token: 'mock-token',
+            identityID: 'mock-identity-id'
+          }
         }, 'action and payload are set correctly')
     })
 
@@ -229,10 +234,9 @@ describe('(Redux Module) Users', () => {
     it('should have a loginReceive action', () => {
       expect(typeof actions.creators.loginReceive)
         .to.equal('function', 'is a function')
-      expect(actions.creators.loginReceive('abc'))
+      expect(actions.creators.loginReceive('abc', 'efg'))
         .to.deep.equal({
-          type: constants.LOGIN_RECEIVE,
-          payload: 'abc'
+          type: constants.LOGIN_RECEIVE
         }, 'action and payload are set correctly')
     })
 
@@ -295,18 +299,31 @@ describe('(Redux Module) Users', () => {
       it('should set session.loggedIn and session.loggedInCheck', () => {
         const state1 = Immutable.fromJS({
           session: {
+            token: '',
+            identityID: '',
             loggedIn: false,
             loggedInCheck: true
           }
         })
 
-        const action1 = { type: 'mock', payload: true }
+        const action1 = {
+          type: 'mock',
+          payload: {
+            loggedIn: true,
+            token: 'mock-token',
+            identityID: 'mock-identity-id'
+          }
+        }
 
         const state2 =
           actions.handlers[constants.COGNITO_SESSION_SET](state1, action1)
 
         const session = state2.toJS().session
 
+        expect(session.token)
+          .to.equal('mock-token', 'session.token is set correctly')
+        expect(session.identityID)
+          .to.equal('mock-identity-id', 'session.identityID is set correctly')
         expect(session.loggedIn)
           .to.equal(true, 'session.loggedIn is set to true')
         expect(session.loggedInCheck)
@@ -605,40 +622,15 @@ describe('(Redux Module) Users', () => {
       })
     })
 
-    describe('LOGIN_RECEIVE', () => {
-      it('should handle the LOGIN_RECEIVE action', () => {
-        expect(typeof actions.handlers[constants.LOGIN_RECEIVE])
-          .to.equal('function', 'handler is defined')
-      })
-
-      it('should set token', () => {
-        const state1 = Immutable.fromJS({
-          token: ''
-        })
-
-        const action1 = { type: 'mock', payload: 'mock-token' }
-
-        const state2 =
-          actions.handlers[constants.LOGIN_RECEIVE](state1, action1)
-
-        const state2JS = state2.toJS()
-
-        console.debug(state2JS)
-
-        expect(state2JS.token)
-          .to.equal('mock-token', 'token is set correctly')
-      })
-    })
-
     describe('LOGOUT_RECEIVE', () => {
       it('should handle the LOGOUT_RECEIVE action', () => {
         expect(typeof actions.handlers[constants.LOGOUT_RECEIVE])
           .to.equal('function', 'handler is defined')
       })
 
-      it('should unset token', () => {
+      it('should unset token and identityID', () => {
         const state1 = Immutable.fromJS({
-          token: 'mock-token'
+          session: { token: 'mock-token', identityID: 'mock-identity-id' }
         })
 
         const action1 = { type: 'mock', payload: 'mock-token' }
@@ -648,8 +640,10 @@ describe('(Redux Module) Users', () => {
 
         const state2JS = state2.toJS()
 
-        expect(state2JS.token)
+        expect(state2JS.session.token)
           .to.equal('', 'token is unset correctly')
+        expect(state2JS.session.identityID)
+          .to.equal('', 'identityID is unset correctly')
       })
     })
   })
@@ -669,7 +663,6 @@ describe('(Redux Module) Users', () => {
           requestInProgress: false,
           message: '',
           errorMessage: '',
-          token: '',
           signUp: {
             email: '',
             password: '',
@@ -682,6 +675,8 @@ describe('(Redux Module) Users', () => {
             status: ''
           },
           session: {
+            token: '',
+            identityID: '',
             loggedIn: false,
             loggedInCheck: true
           }
@@ -849,7 +844,7 @@ describe('(Redux Module) Users', () => {
     describe('getToken', () => {
       const _state = {
         [constants.STATE_PATH]: Immutable.fromJS({
-          token: 'mock-token'
+          session: { token: 'mock-token' }
         })
       }
 
