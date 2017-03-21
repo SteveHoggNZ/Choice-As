@@ -342,12 +342,16 @@ const SAGA_HANDLERS = {
       const userSession = yield select(cognitoUsersSelectors.getSession)
       const sessionIDFull = userSession.identityID + ':' + sessionID
 
-      sessionTrialInsert(sessionIDFull, 'hello world!')
+      const clickData = {
+        'key': keyID
+      }
 
       // *** TODO, cache this result somewhere?
       const getSession = selectors.makeGetSession()
 
       const session = yield select(getSession, { sessionID })
+
+      clickData.condition = session.conditionID
 
       yield put(actions.creators
         .log(sessionID, '-----------------------------------------------'))
@@ -372,9 +376,11 @@ const SAGA_HANDLERS = {
           [key]: keys[key].probability
         }), {})
 
-      yield put(actions.creators
-        .log(sessionID, `Trial: ${trialCount + 1},
-          Stage: ${keyStageID + 1}, Possible Keys: ${keyStage.join(', ')}`))
+      clickData.info = `Trial: ${trialCount + 1}, ` +
+        `Stage: ${keyStageID + 1}, Possible Keys: ${keyStage.join(', ')}, ` +
+        `ITI: ${condition.iti} seconds`
+
+      yield put(actions.creators.log(sessionID, clickData.info))
 
       /* reinforcer can be L* R* STAY_* or SWITCH_* */
       const reinforcer = utilChoiceAs.weightedRandomSelect(keyStageFull)
@@ -402,6 +408,8 @@ const SAGA_HANDLERS = {
         reinforcerKey = reinforcer
       }
 
+      clickData.reinforcer = reinforcerKey
+
       yield put(actions.creators.log(sessionID,
         `Reinforcer Location: ${reinforcerKey}
           ${reinforcer !== reinforcerKey ? ' (' + reinforcer + ')' : ''}`))
@@ -428,6 +436,8 @@ const SAGA_HANDLERS = {
           'ITI wake up'))
       }
 
+      sessionTrialInsert(sessionIDFull, clickData)
+
       yield put(actions.creators.trialShiftCursor(sessionID, cursorNext))
     },
     errorHandler: sagaErrorHandler
@@ -439,10 +449,10 @@ const SAGA_HANDLERS = {
       const userSession = yield select(cognitoUsersSelectors.getSession)
       const sessionIDFull = userSession.identityID + ':' + sessionID
 
-      sessionTrialInit(sessionIDFull)
-
       const { conditions } =
         yield select(selectorsChoiceAs.getConditionsAndKeys)
+
+      sessionTrialInit(sessionIDFull, conditions)
 
       yield put(yield call(actions.creators.init, conditionID, sessionID))
 

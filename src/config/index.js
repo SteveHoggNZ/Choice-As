@@ -1,5 +1,8 @@
 // Conditions have sessions which have trials
 export default {
+  session: [
+    'C1', 'C2', 'C3'
+  ],
   conditions: {
     C1: {
       name: 'condition 1',

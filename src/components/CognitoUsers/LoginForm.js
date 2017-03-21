@@ -179,25 +179,6 @@ SubmitButton.propTypes = {
   label: PropTypes.string.isRequired
 }
 
-const LogOutForm = ({ onLogOut }) => (
-  <Container style={{ 'border': '1px solid gray', 'maxWidth': '20em' }}>
-    <Row>
-      <Col><h1>Log out</h1></Col>
-    </Row>
-    <Row>
-      <Col>
-        You are currently logged in.&nbsp;
-        <a href='#' onClick={onLogOut}>Log out</a>
-      </Col>
-    </Row>
-    <Row><Col>&nbsp;</Col></Row>
-  </Container>
-)
-
-LogOutForm.propTypes = {
-  onLogOut: PropTypes.func.isRequired
-}
-
 const ForgottenPasswordForm = ({
   requestInProgress = false,
   setModeLogin,
@@ -362,10 +343,6 @@ class LoginForm extends React.Component {
       // session check is quick, so don't show a spinner as it causes
       // a screen flicker on load
       return <span />
-    }
-
-    if (this.props.session && this.props.session.loggedIn) {
-      return <LogOutForm onLogOut={this.onLogOut} />
     }
 
     if (this.props.mode === 'forgot') {

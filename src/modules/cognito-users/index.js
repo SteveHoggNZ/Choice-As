@@ -357,42 +357,48 @@ const sagaHandlers = {
                 if (error) {
                   emit({ error: error.message })
                 } else {
-                  const token = session.idToken.jwtToken
-                  const loginName = 'cognito-idp.' + config.region +
-                    '.amazonaws.com/' + config['user-pool-id']
-                  AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-                    IdentityPoolId: config['identity-pool-id'],
-                    Logins: {
-                      [loginName]: token
-                    }
-                  })
-                  AWS.config.region = config.region
+                  if (!session.isValid()) {
+                    emit({ error: 'Session has expired' })
+                  } else {
+                    const token = session.getIdToken().getJwtToken()
 
-                  // call refresh method in order to authenticate user and get new temp credentials
-                  AWS.config.credentials.refresh((error) => {
-                    if (error) {
-                      emit({ error })
-                    } else {
-                      const isValid = session.isValid() &&
-                        AWS.config.credentials &&
-                        !AWS.config.credentials.expired
+                    const loginName = 'cognito-idp.' + config.region +
+                      '.amazonaws.com/' + config['user-pool-id']
 
-                      if (isValid) {
-                        emit({
-                          success: {
-                            isValid: true,
-                            token,
-                            identityID: AWS.config.credentials.identityId
-                          }
-                        })
-                      } else {
-                        emit({ error: 'Invalid or expired session' })
+                    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                      IdentityPoolId: config['identity-pool-id'],
+                      Logins: {
+                        [loginName]: token
                       }
-                    }
-                  })
+                    })
+                    AWS.config.region = config.region
+
+                    // call refresh method in order to authenticate user and get new temp credentials
+                    AWS.config.credentials.refresh((error) => {
+                      if (error) {
+                        emit({ error: error.message })
+                      } else {
+                        const isValid = session.isValid() &&
+                          AWS.config.credentials &&
+                          !AWS.config.credentials.expired
+
+                        if (isValid) {
+                          emit({
+                            success: {
+                              isValid: true,
+                              token,
+                              identityID: AWS.config.credentials.identityId
+                            }
+                          })
+                        } else {
+                          emit({ error: 'Invalid or expired session' })
+                        }
+                      }
+                    })
+                  }
                 }
               })
-            }, 0)
+            }, 300)
 
             const unsubscribe = () => {}
             return unsubscribe
@@ -732,7 +738,7 @@ const sagaHandlers = {
             },
             onFailure: function (error) {
               emit({
-                error
+                error: error.message
               })
             }
           })
