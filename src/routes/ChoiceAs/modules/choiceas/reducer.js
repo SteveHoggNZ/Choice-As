@@ -12,6 +12,7 @@ const ACTION_HANDLERS = {
 // ------------------------------------
 const initialState = Immutable.fromJS({
   entities: {
+    order: config.order,
     conditions: config.conditions,
     keys: config.keys
   }

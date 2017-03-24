@@ -8,7 +8,7 @@ const mapStateToProps = (state, ownProps) => ({
 })
 
 const mapActionCreators = {
-  run: () => actions.creators.runRequest(100000)
+  run: () => actions.creators.runRequest(1000000)
 }
 
 export default connect(mapStateToProps, mapActionCreators)(ChoiceAsTest)

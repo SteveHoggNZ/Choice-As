@@ -48,7 +48,7 @@ export const handlers = {
   [constants.TEST_RUN]: {
     // require: {payload: {steve: ''}},
     handler: function * (action) {
-      const { conditions, keys } = yield select(selectors.getConditionsAndKeys)
+      const { conditions, keys } = yield select(selectors.getSession)
       console.log('called test_run')
       console.log(conditions, keys)
 

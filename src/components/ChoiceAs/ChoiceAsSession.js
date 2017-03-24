@@ -1,20 +1,22 @@
 import React from 'react'
+import { Button } from 'reactstrap'
 import './ChoiceAs.scss'
 import ChoiceKey from './ChoiceKey'
 
-const ChoiceAsSessionButton = (props) => {
+const ChoiceAsSessionStartButton = (props) => {
   const startSessionHandler = () => {
-    props.startClick(props.conditionID)
+    props.startClick()
   }
 
-  return <button onClick={startSessionHandler}>
-    Start Session {props.conditionName}
-  </button>
+  return <Button
+    type='submit'
+    color='primary'
+    onClick={startSessionHandler}>
+    Start New Session
+  </Button>
 }
 
-ChoiceAsSessionButton.propTypes = {
-  conditionID: React.PropTypes.string.isRequired,
-  conditionName: React.PropTypes.string.isRequired,
+ChoiceAsSessionStartButton.propTypes = {
   startClick: React.PropTypes.func.isRequired
 }
 
@@ -32,7 +34,8 @@ export const ChoiceAsSession = (props) => {
     }
   }
 
-  const { cursor, trials, correctCount } = props.session || {}
+  const { cursor, trials } = props.session || {}
+  const { correctCount } = props || {}
 
   const trial = cursor && trials && trials[cursor.trialCount] &&
     trials[cursor.trialCount][cursor.keyStageID] &&
@@ -41,19 +44,10 @@ export const ChoiceAsSession = (props) => {
   // props.router.push('/some/path')
 
   return <div>
-    {!props.sessionID &&
-      <div>
-        <ChoiceAsSessionButton startClick={props.startClick}
-          conditionID='C1' conditionName='Condition 1' />
-        <ChoiceAsSessionButton startClick={props.startClick}
-          conditionID='C2' conditionName='Condition 2' />
-        <ChoiceAsSessionButton startClick={props.startClick}
-          conditionID='C3' conditionName='Condition 3' />
-      </div>}
     {props.session && props.sessionID &&
       <div>
         <div className='choice-as__container'>
-          {props.entities.conditions[props.session.conditionID].keys[0]
+          {props.entities.conditions[props.session.cursor.conditionID].keys[0]
             .map((k, i) => {
               const wasClicked = trial && trial.clickedKey &&
                 trial.clickedKey === k
@@ -74,11 +68,20 @@ export const ChoiceAsSession = (props) => {
         </div>
         <br />
         <h2>
-          You have found {correctCount} duck{correctCount === 1 ? '' : 's'}
+          You {!props.session.finished && <span>have </span>}found {correctCount} duck{correctCount === 1 ? '' : 's'}
         </h2>
+      </div>}
+    {props.session.finished &&
+      <h3 style={{ color: 'green' }}>Thank you! The session is now complete.</h3>}
+    {(!props.sessionID || props.session.finished) &&
+      <div>
+        <ChoiceAsSessionStartButton startClick={props.startClick} />
+      </div>}
+    {props.session && props.sessionID &&
+      <span>
         <br />
         <ul className='choice-as__log'>{buildLog()}</ul>
-      </div>}
+      </span>}
   </div>
 }
 
@@ -86,6 +89,7 @@ ChoiceAsSession.propTypes = {
   sessionID: React.PropTypes.string,
   // sessionState: React.PropTypes.object.isRequired,
   session: React.PropTypes.object,
+  correctCount: React.PropTypes.number.isRequired,
   entities: React.PropTypes.object.isRequired,
   startClick: React.PropTypes.func.isRequired,
   keyClick: React.PropTypes.func.isRequired

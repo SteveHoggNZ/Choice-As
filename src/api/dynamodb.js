@@ -1,18 +1,44 @@
 import AWS from 'aws-sdk'
 import databaseConfig from 'config/database'
 
-export const sessionTrialInit = (id, conditions) => {
+export const sessionTrialInit = (id, conditionOrder, conditions) => {
   const docParams = {
     TableName: databaseConfig.table,
     Item: {
       'user_id': id,
-      'conditions': { conditions },
+      'order': conditionOrder,
+      'conditions': conditions,
       'trials': []
     }
   }
 
   const docClient = new AWS.DynamoDB.DocumentClient()
   docClient.put(docParams, (err, data) => {
+    console.debug(err, data)
+  })
+}
+
+export const sessionTrialClose = (id) => {
+  const params = {
+    TableName: databaseConfig.table,
+    UpdateExpression: 'SET #C = :c',
+    ExpressionAttributeNames: {
+      '#C': 'closed'
+    },
+    ExpressionAttributeValues: {
+      ':c': {
+        'BOOL': true
+      }
+    },
+    Key: {
+      'user_id': {
+        'S': id
+      }
+    }
+  }
+
+  const dynamodb = new AWS.DynamoDB()
+  dynamodb.updateItem(params, (err, data) => {
     console.debug(err, data)
   })
 }
@@ -28,12 +54,13 @@ export const sessionTrialInsert = (id, trial) => {
 
   const docParams = {
     TableName: databaseConfig.table,
-    UpdateExpression: 'SET #T = list_append(#T, :t)',
+    UpdateExpression: 'SET #T = list_append(if_not_exists(#T, :empty), :t)',
     ExpressionAttributeNames: {
       '#T': 'trials'
     },
     ExpressionAttributeValues: {
-      ':t': [trial]
+      ':t': [trial],
+      ':empty': []
     },
     Key: { 'user_id': id }
   }

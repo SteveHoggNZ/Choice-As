@@ -122,7 +122,7 @@ const SAGA_HANDLERS = {
       yield call(delay, 1)
 
       const { conditions, keys } =
-        yield select(selectorsChoiceAs.getConditionsAndKeys)
+        yield select(selectorsChoiceAs.getSession)
 
       const iterations = action.payload || 1000
 

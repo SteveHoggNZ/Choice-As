@@ -1,18 +1,14 @@
 import React from 'react'
 
-// FlowType annotations
-type Props = {
-  debug: boolean,
-  test: number
+export const ChoiceAs = (props) => {
+  return <div>
+    {props.userSession.loggedIn &&
+      props.children}
+  </div>
 }
 
-export const ChoiceAs = (props: Props) => (
-  <div>
-    {props.children}
-  </div>
-)
-
 ChoiceAs.propTypes = {
+  userSession: React.PropTypes.object.isRequired,
   children: React.PropTypes.object.isRequired
 }
 

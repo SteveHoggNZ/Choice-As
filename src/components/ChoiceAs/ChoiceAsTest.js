@@ -1,7 +1,7 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import './ChoiceAs.scss'
 
-const ChoiceAsTestResult = ({ conditionID, counts, iterations }) => {
+export const ChoiceAsTestResult = ({ conditionID, counts, iterations }) => {
   let uniqueID = 0
 
   // counts are an array of objects, so we need nested loops
@@ -17,6 +17,12 @@ const ChoiceAsTestResult = ({ conditionID, counts, iterations }) => {
       </div>
     ))}
   </div>
+}
+
+ChoiceAsTestResult.propTypes = {
+  conditionID: PropTypes.string.isRequired,
+  counts: PropTypes.array.isRequired,
+  iterations: PropTypes.number.isRequired
 }
 
 export const ChoiceAsTest = ({ run, results }) => (
@@ -45,8 +51,8 @@ export const ChoiceAsTest = ({ run, results }) => (
 )
 
 ChoiceAsTest.propTypes = {
-  run: React.PropTypes.func.isRequired,
-  results: React.PropTypes.object.isRequired
+  run: PropTypes.func.isRequired,
+  results: PropTypes.object.isRequired
 }
 
 export default ChoiceAsTest

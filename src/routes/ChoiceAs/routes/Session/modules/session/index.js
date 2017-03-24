@@ -1,17 +1,23 @@
 import Immutable from 'immutable'
 import { createSelector } from 'reselect'
 import uuid from 'uuid-v4'
-import { browserHistory } from 'react-router'
 import { call, put, select } from 'redux-saga/effects'
 import { delay } from 'redux-saga'
 import sagaUtil from 'util/sagas'
-import { selectors as cognitoUsersSelectors } from 'modules/cognito-users'
+import {
+  actions as cognitoUserActions,
+  selectors as cognitoUsersSelectors
+} from 'modules/cognito-users'
 import {
   selectors as selectorsChoiceAs,
   util as utilChoiceAs
 } from '../../../../modules/choiceas'
 
-import { sessionTrialInit, sessionTrialInsert } from 'api/dynamodb'
+import {
+  sessionTrialInit,
+  sessionTrialClose,
+  sessionTrialInsert
+} from 'api/dynamodb'
 
 /* constants */
 const STATE_PATH = 'session'
@@ -29,7 +35,6 @@ const KEY_CLICK = `${PREFIX}KEY_CLICK`
 const SESSION_LOCK = `${PREFIX}SESSION_LOCK`
 const TRIGGER_REVEAL1 = `${PREFIX}TRIGGER_REVEAL1`
 const TRIGGER_REVEAL2 = `${PREFIX}TRIGGER_REVEAL2`
-/* TODO, remove TRIAL_UPDATE */
 const TRIAL_UPDATE = `${PREFIX}TRIAL_UPDATE`
 const TRIAL_RECORD = `${PREFIX}TRIAL_RECORD`
 const TRIAL_SHIFT_CURSOR = `${PREFIX}TRIAL_SHIFT_CURSOR`
@@ -54,19 +59,17 @@ export const constants = {
 
 /* actions */
 /* - action creators */
-const start = (conditionID) => {
+const start = () => {
   return {
-    type: constants.START,
-    payload: {
-      conditionID
-    }
+    type: constants.START
   }
 }
 
-const init = (conditionID, sessionID) => {
+const init = (conditionOrder, conditionID, sessionID) => {
   return {
     type: constants.INIT,
     payload: {
+      conditionOrder,
       conditionID,
       sessionID
     }
@@ -148,13 +151,16 @@ const trialShiftCursor = (sessionID, cursorNext) => {
   }
 }
 
-const stop = () => {
+const stop = (sessionID) => {
   return {
-    type: constants.STOP
+    type: constants.STOP,
+    payload: {
+      sessionID
+    }
   }
 }
 
-const log = (sessionID: string, msg: string) => {
+const log = (sessionID, msg) => {
   return {
     type: constants.LOG,
     payload: {
@@ -181,17 +187,28 @@ const ACTION_CREATORS = {
 /* - action handlers */
 const ACTION_HANDLERS = {
   [constants.INIT]: (state, action) => {
-    return state.set(action.payload.sessionID,
-      Immutable.fromJS({
+    // To Do: Dynamically calculate correctCount
+    const sessionState = {
+      startTime: performance.now(),
+      locked: false,
+      finished: false,
+      cursor: {
         conditionID: action.payload.conditionID,
-        locked: false,
-        cursor: {
-          trialCount: 0,
-          keyStageID: 0
-        },
-        trials: [],
-        log: []
-      }))
+        trialCount: 0,
+        keyStageID: 0
+      },
+      correctCount: 0,
+      trials: [],
+      log: []
+    }
+
+    return state
+      .set('currentSession', action.payload.sessionID)
+      .set(action.payload.sessionID, Immutable.fromJS(sessionState))
+  },
+  [constants.STOP]: (state, action) => {
+    const { sessionID } = action.payload
+    return state.setIn([sessionID, 'finished'], true)
   },
   [constants.SESSION_LOCK]: (state, action) => {
     const sessionID = action.payload
@@ -256,7 +273,9 @@ export const actions = {
 }
 
 /* reducer */
-export const initialState = Immutable.fromJS({})
+export const initialState = Immutable.fromJS({
+  currentSession: ''
+})
 export const reducer = (
   state = initialState,
   action,
@@ -269,8 +288,6 @@ export const reducer = (
 
 /* selectors */
 const _getSessionState = (state, props) => {
-  console.warn('got props in selector', props)
-  // return state.getIn([constants.STATE_PATH])
   return state[constants.STATE_PATH]
 }
 
@@ -279,29 +296,38 @@ const getSessionState = createSelector(
   (_result) => _result.toJS()
 )
 
-const _getSession = (state, props) => {
-  return state[constants.STATE_PATH].getIn([props.sessionID]) || undefined
-}
+const getCurrentSessionID = createSelector(
+  _getSessionState,
+  (_result) => _result.get('currentSession')
+)
 
-const makeGetSession = () => createSelector(
-  [ _getSession ],
+const getSession = createSelector(
+  _getSessionState,
+  getCurrentSessionID,
+  (sessionState, currentSessionID) => {
+    // get the session values for items in the currentSession key position
+    const currentSession = sessionState.get(currentSessionID)
+    return currentSession && currentSession.toJS() || {}
+  }
+)
+
+const getCorrectCount = createSelector(
+  getSession,
   (session) => {
-    // count all keys that were clicked on that had the reinforcer
-    // TODO, test correctCount
-    const correctCount = session && session.get('trials')
+    return session && session.trials && session.trials
       .reduce((acc, trial) => acc + trial
         .reduce((acc2, stage) => {
           return acc2 +
-            (stage.get('clickedKey') === stage.get('reinforcerKey') ? 1 : 0)
+            (stage.clickedKey === stage.reinforcerKey ? 1 : 0)
         }, 0 /* acc2 */), 0 /* acc */) || 0
-    // console.info('really getting session')
-    return session && { ...session.toJS(), correctCount }
   }
 )
 
 export const selectors = {
   getSessionState,
-  makeGetSession
+  getCurrentSessionID,
+  getSession,
+  getCorrectCount
 }
 
 /* sagas */
@@ -346,12 +372,10 @@ const SAGA_HANDLERS = {
         'key': keyID
       }
 
-      // *** TODO, cache this result somewhere?
-      const getSession = selectors.makeGetSession()
+      const session = yield select(selectors.getSession)
 
-      const session = yield select(getSession, { sessionID })
-
-      clickData.condition = session.conditionID
+      clickData.conditionID = session.cursor.conditionID
+      clickData.clickTime = performance.now() - session.startTime
 
       yield put(actions.creators
         .log(sessionID, '-----------------------------------------------'))
@@ -361,12 +385,12 @@ const SAGA_HANDLERS = {
 
       yield put(actions.creators.sessionLock(sessionID))
 
-      const { conditions, keys } =
-        yield select(selectorsChoiceAs.getConditionsAndKeys)
+      const { order: conditionOrder, conditions, keys } =
+        yield select(selectorsChoiceAs.getSession)
 
-      const condition = conditions[session.conditionID]
+      const { conditionID, keyStageID, trialCount } = session.cursor
 
-      const { keyStageID, trialCount } = session.cursor
+      const condition = conditions[conditionID]
 
       const keyStage = condition.keys[session.cursor.keyStageID]
 
@@ -376,7 +400,7 @@ const SAGA_HANDLERS = {
           [key]: keys[key].probability
         }), {})
 
-      clickData.info = `Trial: ${trialCount + 1}, ` +
+      clickData.info = `Condition: ${conditionID}, Trial: ${trialCount + 1}, ` +
         `Stage: ${keyStageID + 1}, Possible Keys: ${keyStage.join(', ')}, ` +
         `ITI: ${condition.iti} seconds`
 
@@ -414,11 +438,34 @@ const SAGA_HANDLERS = {
         `Reinforcer Location: ${reinforcerKey}
           ${reinforcer !== reinforcerKey ? ' (' + reinforcer + ')' : ''}`))
 
-      const cursor = { trialCount, keyStageID }
-      const cursorNext = { trialCount: nextTrialCount, keyStageID: nextKeyStageID }
-      const record = { clickedKey: keyID, reinforcerKey, reinforcer, previousKey }
+      const cursor = { conditionID, trialCount, keyStageID }
 
+      const record = { conditionID, clickedKey: keyID, reinforcerKey, reinforcer, previousKey }
       yield put(actions.creators.trialRecord(sessionID, cursor, record))
+
+      // work out the sum of the trials for the current condition and all the
+      // conditions that proceeded it
+      const sumTrialCount = conditionOrder
+        .slice(0, conditionOrder.indexOf(conditionID) + 1)
+        .reduce((sum, cID) => sum + conditions[cID].trials, 0)
+
+      let cursorNext
+      let sessionEnd = false
+      if (nextTrialCount >= sumTrialCount) {
+        // we need to move to the next condition
+        if (conditionOrder[conditionOrder.length - 1] === conditionID) {
+          // we're on the last condition, so end the session
+          sessionEnd = true
+        } else {
+          // change to the next condition
+          const conditionNext = conditionOrder[conditionOrder.indexOf(conditionID) + 1]
+          cursorNext = { conditionID: conditionNext, trialCount: nextTrialCount, keyStageID: nextKeyStageID }
+        }
+      } else {
+        // change to the next trial and stage
+        cursorNext = { conditionID, trialCount: nextTrialCount, keyStageID: nextKeyStageID }
+      }
+
       yield put(actions.creators.trialReveal1(sessionID, cursor))
 
       const revealDelay = 1500
@@ -436,25 +483,44 @@ const SAGA_HANDLERS = {
           'ITI wake up'))
       }
 
-      sessionTrialInsert(sessionIDFull, clickData)
+      yield call(sessionTrialInsert, sessionIDFull, clickData)
 
-      yield put(actions.creators.trialShiftCursor(sessionID, cursorNext))
+      if (sessionEnd) {
+        yield call(sessionTrialClose, sessionIDFull)
+        yield put(yield call(actions.creators.stop, sessionID))
+      } else {
+        yield put(actions.creators.trialShiftCursor(sessionID, cursorNext))
+      }
     },
     errorHandler: sagaErrorHandler
   },
   [constants.START]: {
     handler: function * (action) {
-      const { conditionID } = action.payload
+      // TO DO: if there is a delay between login and starting the trial
+      // the user login session may have expired. cognitoSessionCheck below
+      // will fix this, but only after its corresponding cognitoSessionSet
+      // finishes. There is a race condition between the set and the
+      // sessionTrialInit call below; if the sessionTrialInit runs before the
+      // set then DynamoDB writes will get a permission denied.
+      // If this is a problem in the future then getting sessionTrialInit to wait
+      // on cognitoSessionSet is a potential fix.
+
+      yield put(yield call(cognitoUserActions.creators.cognitoSessionCheck))
+
       const sessionID = yield call(uuid)
       const userSession = yield select(cognitoUsersSelectors.getSession)
       const sessionIDFull = userSession.identityID + ':' + sessionID
 
-      const { conditions } =
-        yield select(selectorsChoiceAs.getConditionsAndKeys)
+      const { order: conditionOrder, conditions } =
+        yield select(selectorsChoiceAs.getSession)
 
-      sessionTrialInit(sessionIDFull, conditions)
+      // initialise the session with the first condition in the list
+      const conditionID = conditionOrder[0]
 
-      yield put(yield call(actions.creators.init, conditionID, sessionID))
+      yield call(sessionTrialInit, sessionIDFull, conditionOrder, conditions)
+
+      yield put(yield call(actions.creators.init,
+        conditionOrder, conditionID, sessionID))
 
       yield put(actions.creators.log(sessionID,
         `Initalised Condition ${conditionID}, Session ${sessionID}`))
@@ -466,9 +532,6 @@ const SAGA_HANDLERS = {
             .join(', ')
 
       yield put(actions.creators.log(sessionID, `Condition key sequence: ${keyString}`))
-
-      /* absolute path required to stop not-found route */
-      yield call(browserHistory.push, `/choiceas/${ROUTE_PATH}/${sessionID}`)
     },
     errorHandler: sagaErrorHandler
   }

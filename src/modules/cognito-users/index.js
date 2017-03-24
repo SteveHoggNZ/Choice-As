@@ -74,7 +74,7 @@ const creators = {
       identityID
     }
   }),
-  cognitoRequest: (email, password, studentid) => ({
+  cognitoRequest: () => ({
     type: constants.COGNITO_REQUEST
   }),
   cognitoReceive: (message) => ({
@@ -165,8 +165,11 @@ const handlers = {
     state.set('mode', action.payload)
       .set('message', '')
       .set('errorMessage', ''),
+  [constants.COGNITO_SESSION_CHECK]: (state, action) =>
+    state.setIn('requestInProgress', true),
   [constants.COGNITO_SESSION_SET]: (state, action) =>
     state
+      .setIn('requestInProgress', false)
       .setIn(['session', 'token'], action.payload.token)
       .setIn(['session', 'identityID'], action.payload.identityID)
       .setIn(['session', 'loggedIn'], action.payload.loggedIn)
@@ -351,54 +354,53 @@ const sagaHandlers = {
       } else {
         const createSessionCheckChannel = () => {
           return eventChannel((emit) => {
-            // setTimeout is used as the callback returns too quickly
-            setTimeout(() => {
-              cognitoUser.getSession(function (error, session) {
-                if (error) {
-                  emit({ error: error.message })
+            cognitoUser.getSession(function (error, session) {
+              if (error) {
+                emit({ error: error.message })
+              } else {
+                if (!session.isValid()) {
+                  emit({ error: 'Session has expired' })
                 } else {
-                  if (!session.isValid()) {
-                    emit({ error: 'Session has expired' })
-                  } else {
-                    const token = session.getIdToken().getJwtToken()
+                  console.debug('Refeshing session expired?', AWS.config && AWS.config.credentials && AWS.config.credentials.expired)
 
-                    const loginName = 'cognito-idp.' + config.region +
-                      '.amazonaws.com/' + config['user-pool-id']
+                  const token = session.getIdToken().getJwtToken()
 
-                    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-                      IdentityPoolId: config['identity-pool-id'],
-                      Logins: {
-                        [loginName]: token
-                      }
-                    })
-                    AWS.config.region = config.region
+                  const loginName = 'cognito-idp.' + config.region +
+                    '.amazonaws.com/' + config['user-pool-id']
 
-                    // call refresh method in order to authenticate user and get new temp credentials
-                    AWS.config.credentials.refresh((error) => {
-                      if (error) {
-                        emit({ error: error.message })
+                  AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                    IdentityPoolId: config['identity-pool-id'],
+                    Logins: {
+                      [loginName]: token
+                    }
+                  })
+                  AWS.config.region = config.region
+
+                  // call refresh method in order to authenticate user and get new temp credentials
+                  AWS.config.credentials.refresh((error) => {
+                    if (error) {
+                      emit({ error: error.message })
+                    } else {
+                      const isValid = session.isValid() &&
+                        AWS.config.credentials &&
+                        !AWS.config.credentials.expired
+
+                      if (isValid) {
+                        emit({
+                          success: {
+                            isValid: true,
+                            token,
+                            identityID: AWS.config.credentials.identityId
+                          }
+                        })
                       } else {
-                        const isValid = session.isValid() &&
-                          AWS.config.credentials &&
-                          !AWS.config.credentials.expired
-
-                        if (isValid) {
-                          emit({
-                            success: {
-                              isValid: true,
-                              token,
-                              identityID: AWS.config.credentials.identityId
-                            }
-                          })
-                        } else {
-                          emit({ error: 'Invalid or expired session' })
-                        }
+                        emit({ error: 'Invalid or expired session' })
                       }
-                    })
-                  }
+                    }
+                  })
                 }
-              })
-            }, 300)
+              }
+            })
 
             const unsubscribe = () => {}
             return unsubscribe
@@ -752,7 +754,6 @@ const sagaHandlers = {
       try {
         const result = yield take(authChannel)
         if (result.success) {
-          yield put(yield call(actions.creators.cognitoReceive))
           yield put(yield call(actions.creators.loginReceive))
           yield put(yield call(actions.creators.cognitoSessionCheck))
         } else {

@@ -1,7 +1,5 @@
-import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
-// import { actions, selectors } from '../modules/choiceas'
-
+import { selectors as userSelectors } from 'modules/cognito-users'
 import ChoiceAs from 'components/ChoiceAs'
 
 /*  Object of action creators (can also be function that returns object).
@@ -11,6 +9,7 @@ import ChoiceAs from 'components/ChoiceAs'
 const mapActionCreators = {}
 
 const mapStateToProps = (state, ownProps) => ({
+  userSession: userSelectors.getSession(state),
   debug: ownProps && ownProps.location && ownProps.location.pathname &&
     ownProps.location.pathname.endsWith('/debug') || false,
   test: ownProps && ownProps.location && ownProps.location.pathname &&

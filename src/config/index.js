@@ -1,12 +1,12 @@
-// Conditions have sessions which have trials
+// sessions have conditions have trials
 export default {
-  session: [
-    'C1', 'C2', 'C3'
+  order: [
+    'C1'
   ],
   conditions: {
     C1: {
       name: 'condition 1',
-      trials: 10,
+      trials: 1,
       iti: 3,
       keys: [
         ['L5', 'R5'],
@@ -15,7 +15,7 @@ export default {
     },
     C2: {
       name: 'condition 2',
-      trials: 10,
+      trials: 1,
       iti: 3,
       keys: [
         ['L5', 'R5'],
@@ -24,7 +24,7 @@ export default {
     },
     C3: {
       name: 'condition 3',
-      trials: 10,
+      trials: 1,
       iti: 3,
       keys: [
         ['L5', 'R5'],
