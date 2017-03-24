@@ -1,3 +1,3 @@
 export default {
-  table: 'choice_as_test'
+  table: 'choice_as_sessions'
 }

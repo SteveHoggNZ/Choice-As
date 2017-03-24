@@ -5,7 +5,8 @@ export const sessionTrialInit = (id, conditionOrder, conditions) => {
   const docParams = {
     TableName: databaseConfig.table,
     Item: {
-      'user_id': id,
+      'session_id': id,
+      'session_start': 1,
       'order': conditionOrder,
       'conditions': conditions,
       'trials': []
@@ -31,8 +32,11 @@ export const sessionTrialClose = (id) => {
       }
     },
     Key: {
-      'user_id': {
+      'session_id': {
         'S': id
+      },
+      'session_start': {
+        'N': 1
       }
     }
   }
@@ -62,7 +66,7 @@ export const sessionTrialInsert = (id, trial) => {
       ':t': [trial],
       ':empty': []
     },
-    Key: { 'user_id': id }
+    Key: { 'session_id': id, 'session_start': 1 }
   }
 
   const docClient = new AWS.DynamoDB.DocumentClient()
