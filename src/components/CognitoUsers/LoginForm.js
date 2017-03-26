@@ -247,8 +247,8 @@ class LoginForm extends React.Component {
   constructor (props) {
     super(props)
     this.state = {
-      email: 'hoggynz@gmail.com',
-      password: 'eysky8yer',
+      email: '',
+      password: '',
       studentid: '',
       confirmationCode: ''
       // email: props.email,
@@ -275,7 +275,7 @@ class LoginForm extends React.Component {
       ) {
         this.props.confirm(this.state.email, this.state.confirmationCode)
       } else {
-        this.props.signup(this.state.email, this.state.password)
+        this.props.signup(this.state.email, this.state.password, this.state.studentid)
       }
     }
   }

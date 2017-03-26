@@ -10,7 +10,8 @@ const mapDispatchToProps = (dispatch) => ({
 
 const mapStateToProps = (state) => ({
   loginSession: loginSelectors.getSession(state),
-  requestInProgress: loginSelectors.getRequestInProgress(state)
+  requestInProgress: loginSelectors.getRequestInProgress(state),
+  debug: loginSelectors.getDebugMode(state)
 })
 
 export default connect(mapStateToProps, mapDispatchToProps)(Header)

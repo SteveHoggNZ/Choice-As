@@ -6,7 +6,12 @@ describe('(View) Home', () => {
   let _component
 
   beforeEach(() => {
-    _component = render(<HomeView />)
+    const _props = {
+      userSession: {
+        loggedIn: true
+      }
+    }
+    _component = render(<HomeView {..._props} />)
   })
 
   // it('Renders a welcome message', () => {

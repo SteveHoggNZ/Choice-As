@@ -1,5 +1,5 @@
 // We only need to import the modules necessary for initial render
-import CoreLayout from '../layouts/CoreLayout'
+import CoreLayoutContainer from 'layouts/CoreLayout/CoreLayoutContainer'
 import Home from './Home'
 import ChoiceAsRoute from './ChoiceAs'
 import NotFoundRoute from './NotFound'
@@ -9,7 +9,7 @@ import NotFoundRoute from './NotFound'
 
 export const createRoutes = (store) => ({
   path        : '/',
-  component   : CoreLayout,
+  component   : CoreLayoutContainer,
   indexRoute  : Home,
   childRoutes : [
     ChoiceAsRoute(store),

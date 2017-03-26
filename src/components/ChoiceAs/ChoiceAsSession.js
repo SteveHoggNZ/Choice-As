@@ -46,6 +46,7 @@ export const ChoiceAsSession = (props) => {
   return <div>
     {props.session && props.sessionID &&
       <div>
+        <h4>Find the ducks by clicking on a box</h4>
         <div className='choice-as__container'>
           {props.entities.conditions[props.session.cursor.conditionID].keys[0]
             .map((k, i) => {
@@ -75,9 +76,12 @@ export const ChoiceAsSession = (props) => {
       <h3 style={{ color: 'green' }}>Thank you! The session is now complete.</h3>}
     {(!props.sessionID || props.session.finished) &&
       <div>
+        {!props.session.finished &&
+          <h6>Please click the "Start New Session" button to start a session</h6>}
+        <br />
         <ChoiceAsSessionStartButton startClick={props.startClick} />
       </div>}
-    {props.session && props.sessionID &&
+    {props.debug && props.session && props.sessionID &&
       <span>
         <br />
         <ul className='choice-as__log'>{buildLog()}</ul>
@@ -91,6 +95,7 @@ ChoiceAsSession.propTypes = {
   session: React.PropTypes.object,
   correctCount: React.PropTypes.number.isRequired,
   entities: React.PropTypes.object.isRequired,
+  debug: React.PropTypes.bool,
   startClick: React.PropTypes.func.isRequired,
   keyClick: React.PropTypes.func.isRequired
 }

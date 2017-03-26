@@ -33,7 +33,7 @@ describe('(Component) Header', () => {
     it('Should render a Link to Session route', () => {
       expect(_wrapper.contains(
         <Link activeClassName='route--active' to='/choiceas/session'>
-          Choice As Session
+          Session
         </Link>
       )).to.be.true
     })

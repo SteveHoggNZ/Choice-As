@@ -3,9 +3,9 @@ import HeaderContainer from 'containers/HeaderContainer'
 import './CoreLayout.scss'
 import '../../styles/core.scss'
 
-export const CoreLayout = ({ children, location }) => (
+export const CoreLayout = ({ children, location, debugSet }) => (
   <div className='container'>
-    <HeaderContainer location={location} />
+    <HeaderContainer location={location} debugSet={debugSet} />
     <div className='core-layout__viewport'>
       {children}
     </div>
@@ -14,7 +14,8 @@ export const CoreLayout = ({ children, location }) => (
 
 CoreLayout.propTypes = {
   children : React.PropTypes.element.isRequired,
-  location : React.PropTypes.object.isRequired
+  location : React.PropTypes.object.isRequired,
+  debugSet : React.PropTypes.func.isRequired
 }
 
 export default CoreLayout

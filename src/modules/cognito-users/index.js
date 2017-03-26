@@ -12,7 +12,6 @@ import {
   AuthenticationDetails
 } from 'amazon-cognito-identity-js'
 import sagaUtil from 'util/sagas'
-import databaseConfig from 'config/database.js'
 import config from 'config/cognito-users.js'
 
 AWS.config.region = config.region
@@ -27,6 +26,8 @@ const PREFIX = `${STATE_PATH}/`
 const constants = {
   STATE_PATH,
   PREFIX,
+
+  DEBUG_SET: `${PREFIX}DEBUG_SET`,
 
   FORM_MODE_SET: `${PREFIX}FORM_MODE_SET`,
 
@@ -59,6 +60,9 @@ const constants = {
 
 /* action creators */
 const creators = {
+  debugSet: (mode) => ({
+    type: constants.DEBUG_SET
+  }),
   formModeSet: (mode) => ({
     type: constants.FORM_MODE_SET,
     payload: mode
@@ -66,12 +70,13 @@ const creators = {
   cognitoSessionCheck: () => ({
     type: constants.COGNITO_SESSION_CHECK
   }),
-  cognitoSessionSet: (loggedIn, token, identityID) => ({
+  cognitoSessionSet: (loggedIn, token, identityID, studentID) => ({
     type: constants.COGNITO_SESSION_SET,
     payload: {
       loggedIn,
       token,
-      identityID
+      identityID,
+      studentID
     }
   }),
   cognitoRequest: () => ({
@@ -86,12 +91,12 @@ const creators = {
     payload: error
   }),
 
-  signupRequest: (email, password, studentid) => ({
+  signupRequest: (email, password, studentID) => ({
     type: constants.SIGNUP_REQUEST,
     payload: {
       email,
       password,
-      studentid
+      studentID
     }
   }),
   signupReceive: (email) => ({
@@ -161,19 +166,22 @@ const creators = {
 
 /* action handlers */
 const handlers = {
+  [constants.DEBUG_SET]: (state, action) =>
+    state.set('debug', true),
   [constants.FORM_MODE_SET]: (state, action) =>
     state.set('mode', action.payload)
       .set('message', '')
       .set('errorMessage', ''),
   [constants.COGNITO_SESSION_CHECK]: (state, action) =>
-    state.setIn('requestInProgress', true),
+    state.set('requestInProgress', true),
   [constants.COGNITO_SESSION_SET]: (state, action) =>
     state
-      .setIn('requestInProgress', false)
+      .set('requestInProgress', false)
       .setIn(['session', 'token'], action.payload.token)
       .setIn(['session', 'identityID'], action.payload.identityID)
       .setIn(['session', 'loggedIn'], action.payload.loggedIn)
-      .setIn(['session', 'loggedInCheck'], false),
+      .setIn(['session', 'loggedInCheck'], false)
+      .setIn(['session', 'studentID'], action.payload.studentID),
   [constants.COGNITO_REQUEST]: (state, action) =>
     state.set('requestInProgress', true)
       .set('errorMessage', ''),
@@ -216,6 +224,7 @@ const actions = {
 
 /* reducer */
 const initialState = Immutable.fromJS({
+  debug: false,
   mode: 'signup',
   requestInProgress: false,
   message: '',
@@ -245,6 +254,14 @@ const reducer = {
 }
 
 /* selectors */
+const _getDebugMode = (state) =>
+  state[constants.STATE_PATH].get('debug')
+
+const getDebugMode = createSelector(
+  _getDebugMode,
+  (debug) => debug
+)
+
 const _getFormMode = (state) =>
   state[constants.STATE_PATH].get('mode')
 
@@ -319,6 +336,8 @@ const getSession = createSelector(
 // }
 
 const selectors = {
+  _getDebugMode,
+  getDebugMode,
   _getFormMode,
   getFormMode,
   _getRequestInProgress,
@@ -361,10 +380,7 @@ const sagaHandlers = {
                 if (!session.isValid()) {
                   emit({ error: 'Session has expired' })
                 } else {
-                  console.debug('Refeshing session expired?', AWS.config && AWS.config.credentials && AWS.config.credentials.expired)
-
                   const token = session.getIdToken().getJwtToken()
-
                   const loginName = 'cognito-idp.' + config.region +
                     '.amazonaws.com/' + config['user-pool-id']
 
@@ -376,27 +392,37 @@ const sagaHandlers = {
                   })
                   AWS.config.region = config.region
 
-                  // call refresh method in order to authenticate user and get new temp credentials
-                  AWS.config.credentials.refresh((error) => {
-                    if (error) {
-                      emit({ error: error.message })
-                    } else {
-                      const isValid = session.isValid() &&
-                        AWS.config.credentials &&
-                        !AWS.config.credentials.expired
+                  cognitoUser.getUserAttributes(function (attrErr, attrResult) {
+                    const studentID = attrResult
+                      .filter((f) => f.getName() === 'custom:student-id')[0].getValue() ||
+                      'unknown'
 
-                      if (isValid) {
-                        emit({
-                          success: {
-                            isValid: true,
-                            token,
-                            identityID: AWS.config.credentials.identityId
-                          }
-                        })
+                    // console.debug('Refeshing session expired?',
+                    //   AWS.config && AWS.config.credentials && AWS.config.credentials.expired)
+
+                    // call refresh method in order to authenticate user and get new temp credentials
+                    AWS.config.credentials.refresh((error) => {
+                      if (error) {
+                        emit({ error: error.message })
                       } else {
-                        emit({ error: 'Invalid or expired session' })
+                        const isValid = session.isValid() &&
+                          AWS.config.credentials &&
+                          !AWS.config.credentials.expired
+
+                        if (isValid) {
+                          emit({
+                            success: {
+                              isValid: true,
+                              token,
+                              identityID: AWS.config.credentials.identityId,
+                              studentID
+                            }
+                          })
+                        } else {
+                          emit({ error: 'Invalid or expired session' })
+                        }
                       }
-                    }
+                    })
                   })
                 }
               }
@@ -409,16 +435,16 @@ const sagaHandlers = {
 
         const sessionCheckChannel = yield call(createSessionCheckChannel)
         try {
-          let result = yield take(sessionCheckChannel)
-          if (result.success) {
-            const { isValid, token, identityID } = result.success
+          const result = yield take(sessionCheckChannel)
+          if (result.error) {
+            yield put(yield call(actions.creators.cognitoFailure, result.error))
+            yield put(yield call(actions.creators.cognitoSessionSet, false))
+          } else {
+            const { isValid, token, identityID, studentID } = result.success
             yield put(
               yield call(
                 actions.creators.cognitoSessionSet,
-                  isValid, token, identityID))
-          } else if (result.error) {
-            yield put(yield call(actions.creators.cognitoFailure, result.error))
-            yield put(yield call(actions.creators.cognitoSessionSet, false))
+                  isValid, token, identityID, studentID))
           }
         } catch (error) {
           sessionCheckChannel.close()
@@ -443,7 +469,7 @@ const sagaHandlers = {
 
       const dataStudentID = {
         Name: 'custom:student-id',
-        Value: action.payload.studentid
+        Value: action.payload.studentID
       }
 
       let attributeEmail = new CognitoUserAttribute(dataEmail)

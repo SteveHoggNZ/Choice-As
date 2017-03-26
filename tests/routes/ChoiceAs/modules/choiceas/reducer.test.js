@@ -1,7 +1,7 @@
-import {
-  actions,
-  reducer
-} from 'routes/ChoiceAs/modules/choiceas'
+// import {
+//   actions,
+//   reducer
+// } from 'routes/ChoiceAs/modules/choiceas'
 
 // it('Should increment the state by the action payload\'s property.', () => {
 //     let state = reducer(undefined, {})

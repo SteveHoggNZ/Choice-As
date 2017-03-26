@@ -1,6 +1,9 @@
 import { createSelector } from 'reselect'
 import { STATE_PATH } from './constants'
 
+const _getName = (state) =>
+  state[STATE_PATH].getIn(['entities', 'name'])
+
 const _getOrder = (state) =>
   state[STATE_PATH].getIn(['entities', 'order'])
 
@@ -11,14 +14,17 @@ const _getKeys = (state) =>
   state[STATE_PATH].getIn(['entities', 'keys'])
 
 export const getSession = createSelector(
+  _getName,
   _getOrder,
   _getConditions,
   _getKeys,
-  (_order, _conditions, _keys) => {
+  (_name, _order, _conditions, _keys) => {
+    const name = _name
     const order = _order.toJS()
     const conditions = _conditions.toJS()
     const keys = _keys.toJS()
     return {
+      name,
       order,
       conditions,
       keys

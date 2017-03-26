@@ -7,8 +7,8 @@ const mapDispatchToProps = (dispatch) => ({
     dispatch(actions.creators.formModeSet(mode)),
   sessionCheck: () =>
     dispatch(actions.creators.cognitoSessionCheck()),
-  signup: (email, password) =>
-    dispatch(actions.creators.signupRequest(email, password)),
+  signup: (email, password, studentid) =>
+    dispatch(actions.creators.signupRequest(email, password, studentid)),
   signupCodeRequest: (email) =>
     dispatch(actions.creators.signupCodeRequest(email)),
   confirm: (email, code) =>

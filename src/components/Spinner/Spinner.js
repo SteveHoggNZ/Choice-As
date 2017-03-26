@@ -1,4 +1,4 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
 import classNames from 'classnames'
 import classes from './Spinner.scss'
 
@@ -20,7 +20,7 @@ const buildClassname = ({ size = null, visible = true } = {}) => {
   })
 }
 
-export const Spinner = ({ size, visible, center, children }) => (
+const Spinner = ({ size, visible, center, children }) => (
   <span className={buildParentClassname({ center })}>
     <i className={buildClassname({ size, visible })} />
     &nbsp;
@@ -28,11 +28,14 @@ export const Spinner = ({ size, visible, center, children }) => (
   </span>
 )
 
-Spinner.PropTypes = {
-  size: PropTypes.num,
-  visible: PropTypes.bool,
-  center: PropTypes.bool,
-  children: PropTypes.elem
+Spinner.propTypes = {
+  size: React.PropTypes.number,
+  visible: React.PropTypes.bool,
+  center: React.PropTypes.bool,
+  children: React.PropTypes.oneOfType([
+    React.PropTypes.string,
+    React.PropTypes.element
+  ])
 }
 
 export default Spinner

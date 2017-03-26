@@ -15,25 +15,25 @@ describe('weightedRandomSelect', () => {
   })
 
   it('Throws an error if any of the weights are not decimals.', () => {
-    expect(() => util.weightedRandomSelect({key1: 'a'}))
+    expect(() => util.weightedRandomSelect({ key1: 'a' }))
       .to.throw(Error, 'Expected all weights to be numbers')
-    expect(() => util.weightedRandomSelect({key1: 0.3, key2: []}))
+    expect(() => util.weightedRandomSelect({ key1: 0.3, key2: [] }))
       .to.throw(Error, 'Expected all weights to be numbers')
   })
 
   it('Throws an error if the weights do not sum to 1.', () => {
     const sumError = 'Expected the weights for all keys to sum to 1'
     const expectPrefix = 'Expect no exception when weights sum to'
-    expect(() => util.weightedRandomSelect({key1: 0.2}))
+    expect(() => util.weightedRandomSelect({ key1: 0.2 }))
       .to.throw(Error, sumError, `${expectPrefix} 0.2`)
 
-    expect(() => util.weightedRandomSelect({key1: 0.2, key2: 0.1, key3: 0.3}))
+    expect(() => util.weightedRandomSelect({ key1: 0.2, key2: 0.1, key3: 0.3 }))
       .to.throw(Error, sumError, `${expectPrefix} 0.6`)
 
-    expect(() => util.weightedRandomSelect({key1: 0.4, key2: 0.5, key3: 0.2}))
+    expect(() => util.weightedRandomSelect({ key1: 0.4, key2: 0.5, key3: 0.2 }))
       .to.throw(Error, sumError, `${expectPrefix} 1.1`)
 
-    expect(() => util.weightedRandomSelect({key1: 0.1, key2: 0.9}))
+    expect(() => util.weightedRandomSelect({ key1: 0.1, key2: 0.9 }))
       .to.not.throw(Error, sumError, 'Expect no exception with weight sum = 1')
   })
 
@@ -75,7 +75,7 @@ describe('weightedRandomSelect', () => {
       `${loopCount} selections.`,
       () => {
         confirmSelectWeights({
-          spec: {key1: 0.5, key2: 0.5},
+          spec: { key1: 0.5, key2: 0.5 },
           loopCount,
           errorMargin
         })
@@ -85,7 +85,7 @@ describe('weightedRandomSelect', () => {
       `${loopCount} selections.`,
       () => {
         confirmSelectWeights({
-          spec: {key1: 0.1, key2: 0.9},
+          spec: { key1: 0.1, key2: 0.9 },
           loopCount,
           errorMargin
         })
@@ -95,7 +95,7 @@ describe('weightedRandomSelect', () => {
       `${loopCount} selections.`,
       () => {
         confirmSelectWeights({
-          spec: {key1: 0.9, key2: 0.1},
+          spec: { key1: 0.9, key2: 0.1 },
           loopCount,
           errorMargin
         })
@@ -105,7 +105,7 @@ describe('weightedRandomSelect', () => {
       `${loopCount} selections.`,
       () => {
         confirmSelectWeights({
-          spec: {key1: 0.2, key2: 0.4, key3: 0.1, key4: 0.3},
+          spec: { key1: 0.2, key2: 0.4, key3: 0.1, key4: 0.3 },
           loopCount,
           errorMargin
         })

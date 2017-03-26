@@ -74,7 +74,7 @@ export const deepDiffMapper = (obj1, obj2) => {
     throw Error('Invalid argument. Function given, object expected.')
   }
   if (isValue(obj1) || isValue(obj2)) {
-    return {type: compareValues(obj1, obj2), data: obj1 || obj2}
+    return { type: compareValues(obj1, obj2), data: obj1 || obj2 }
   }
 
   let diff = {}

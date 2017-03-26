@@ -1,34 +1,38 @@
 import AWS from 'aws-sdk'
 import databaseConfig from 'config/database'
 
-export const sessionTrialInit = (id, conditionOrder, conditions) => {
+export const sessionTrialInit = (id, start, name, conditionOrder, conditions, studentID) => {
   const docParams = {
     TableName: databaseConfig.table,
     Item: {
       'session_id': id,
-      'session_start': 1,
+      'session_start': start,
+      'name': name,
       'order': conditionOrder,
       'conditions': conditions,
-      'trials': []
+      'trials': [],
+      'student_id': studentID
     }
   }
 
   const docClient = new AWS.DynamoDB.DocumentClient()
   docClient.put(docParams, (err, data) => {
-    console.debug(err, data)
+    if (err) {
+      console.error('got error', err)
+    }
   })
 }
 
-export const sessionTrialClose = (id) => {
+export const sessionTrialClose = (id, start) => {
   const params = {
     TableName: databaseConfig.table,
-    UpdateExpression: 'SET #C = :c',
+    UpdateExpression: 'SET #E = :e',
     ExpressionAttributeNames: {
-      '#C': 'closed'
+      '#E': 'session_end'
     },
     ExpressionAttributeValues: {
-      ':c': {
-        'BOOL': true
+      ':e': {
+        'N': '' + Date.now()
       }
     },
     Key: {
@@ -36,18 +40,20 @@ export const sessionTrialClose = (id) => {
         'S': id
       },
       'session_start': {
-        'N': 1
+        'N': '' + start
       }
     }
   }
 
   const dynamodb = new AWS.DynamoDB()
   dynamodb.updateItem(params, (err, data) => {
-    console.debug(err, data)
+    if (err) {
+      console.error('got error', err)
+    }
   })
 }
 
-export const sessionTrialInsert = (id, trial) => {
+export const sessionTrialInsert = (id, start, trial) => {
   // Objects need to be converted to DynamoDB maps to be inserted
   // i.e. {"Name": {"S": "Widget"}, "Value": {"N": "33"}}
 
@@ -66,12 +72,14 @@ export const sessionTrialInsert = (id, trial) => {
       ':t': [trial],
       ':empty': []
     },
-    Key: { 'session_id': id, 'session_start': 1 }
+    Key: { 'session_id': id, 'session_start': start }
   }
 
   const docClient = new AWS.DynamoDB.DocumentClient()
   docClient.update(docParams, (err, data) => {
-    console.debug(err, data)
+    if (err) {
+      console.error('got error', err)
+    }
   })
 
   // .. instead of AttributeValue:

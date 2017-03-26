@@ -1,5 +1,5 @@
 import Immutable, { Iterable } from 'immutable'
-import cognitoDefault, { constants, actions, reducer, selectors, sagas }
+import { constants, actions, reducer, selectors, sagas }
   from 'modules/cognito-users'
 import helpers from '../../helpers'
 
@@ -68,13 +68,14 @@ describe('(Redux Module) Cognito Users', () => {
       expect(typeof actions.creators.cognitoSessionSet)
         .to.equal('function', 'is a function')
       expect(actions.creators.cognitoSessionSet(
-          'mock-logged-in', 'mock-token', 'mock-identity-id'))
+          'mock-logged-in', 'mock-token', 'mock-identity-id', 'mock-student-id'))
         .to.deep.equal({
           type: constants.COGNITO_SESSION_SET,
           payload: {
             loggedIn: 'mock-logged-in',
             token: 'mock-token',
-            identityID: 'mock-identity-id'
+            identityID: 'mock-identity-id',
+            studentID: 'mock-student-id'
           }
         }, 'action and payload are set correctly')
     })
@@ -117,7 +118,7 @@ describe('(Redux Module) Cognito Users', () => {
           payload: {
             email: 'test-email',
             password: 'test-password',
-            studentid: 'test-studentid'
+            studentID: 'test-studentid'
           }
         }, 'action and payload are set correctly')
     })
@@ -659,6 +660,7 @@ describe('(Redux Module) Cognito Users', () => {
     it('reducer.initialState is the correct shape', () => {
       expect(reducer.initialState.toJS())
         .to.deep.equal({
+          debug: false,
           mode: 'signup',
           requestInProgress: false,
           message: '',

@@ -65,13 +65,14 @@ const start = () => {
   }
 }
 
-const init = (conditionOrder, conditionID, sessionID) => {
+const init = (conditionOrder, conditionID, sessionID, startTime) => {
   return {
     type: constants.INIT,
     payload: {
       conditionOrder,
       conditionID,
-      sessionID
+      sessionID,
+      startTime
     }
   }
 }
@@ -187,9 +188,8 @@ const ACTION_CREATORS = {
 /* - action handlers */
 const ACTION_HANDLERS = {
   [constants.INIT]: (state, action) => {
-    // To Do: Dynamically calculate correctCount
     const sessionState = {
-      startTime: performance.now(),
+      startTime: action.payload.startTime,
       locked: false,
       finished: false,
       cursor: {
@@ -197,7 +197,6 @@ const ACTION_HANDLERS = {
         trialCount: 0,
         keyStageID: 0
       },
-      correctCount: 0,
       trials: [],
       log: []
     }
@@ -375,7 +374,7 @@ const SAGA_HANDLERS = {
       const session = yield select(selectors.getSession)
 
       clickData.conditionID = session.cursor.conditionID
-      clickData.clickTime = performance.now() - session.startTime
+      clickData.clickTime = Date.now() - session.startTime
 
       yield put(actions.creators
         .log(sessionID, '-----------------------------------------------'))
@@ -483,10 +482,10 @@ const SAGA_HANDLERS = {
           'ITI wake up'))
       }
 
-      yield call(sessionTrialInsert, sessionIDFull, clickData)
+      yield call(sessionTrialInsert, sessionIDFull, session.startTime, clickData)
 
       if (sessionEnd) {
-        yield call(sessionTrialClose, sessionIDFull)
+        yield call(sessionTrialClose, sessionIDFull, session.startTime)
         yield put(yield call(actions.creators.stop, sessionID))
       } else {
         yield put(actions.creators.trialShiftCursor(sessionID, cursorNext))
@@ -504,23 +503,26 @@ const SAGA_HANDLERS = {
       // set then DynamoDB writes will get a permission denied.
       // If this is a problem in the future then getting sessionTrialInit to wait
       // on cognitoSessionSet is a potential fix.
-
       yield put(yield call(cognitoUserActions.creators.cognitoSessionCheck))
 
       const sessionID = yield call(uuid)
       const userSession = yield select(cognitoUsersSelectors.getSession)
+
       const sessionIDFull = userSession.identityID + ':' + sessionID
 
-      const { order: conditionOrder, conditions } =
+      const { name: projectName, order: conditionOrder, conditions } =
         yield select(selectorsChoiceAs.getSession)
+
+      const startTime = Date.now()
 
       // initialise the session with the first condition in the list
       const conditionID = conditionOrder[0]
 
-      yield call(sessionTrialInit, sessionIDFull, conditionOrder, conditions)
+      yield call(sessionTrialInit, sessionIDFull,
+        startTime, projectName, conditionOrder, conditions, userSession.studentID)
 
       yield put(yield call(actions.creators.init,
-        conditionOrder, conditionID, sessionID))
+        conditionOrder, conditionID, sessionID, startTime))
 
       yield put(actions.creators.log(sessionID,
         `Initalised Condition ${conditionID}, Session ${sessionID}`))
