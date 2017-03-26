@@ -2,16 +2,34 @@
 export default {
   name: 'Pocket Project',
   order: [
-    'C1'
+    'C1', 'C2', 'C3'
   ],
   conditions: {
     C1: {
       name: 'condition 1',
-      trials: 10,
-      iti: 2,
+      trials: 2,
+      iti: 3,
       keys: [
         ['L5', 'R5'],
         ['STAY_0.1', 'SWITCH_0.9']
+      ]
+    },
+    C2: {
+      name: 'condition 2',
+      trials: 2,
+      iti: 3,
+      keys: [
+        ['L5', 'R5'],
+        ['STAY_0.5', 'SWITCH_0.5']
+      ]
+    },
+    C3: {
+      name: 'condition 3',
+      trials: 2,
+      iti: 3,
+      keys: [
+        ['L5', 'R5'],
+        ['STAY_0.9', 'SWITCH_0.1']
       ]
     }
   },
